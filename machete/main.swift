@@ -28,6 +28,8 @@ extension Character {
   }
 }
 
+typealias Token = (str: String, len: Int)
+
 class Lexer {
   enum Error: Swift.Error {
     case invalidCharacter(Character)
@@ -99,7 +101,9 @@ class Machete {
   }
 
   var text = ""
-  var vars = [Int](repeating: 0, count: 256) // 変数
+  private let maxTokenCodes = 1000
+  private lazy var vars = [Int](repeating: 0, count: maxTokenCodes) // 変数
+  private lazy var tokens = [Token?](repeating: nil, count: maxTokenCodes)
 
   func loadText(_ args: [String]) {
     if args.count < 2 {
