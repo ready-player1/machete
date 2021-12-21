@@ -96,11 +96,12 @@ class Lexer {
 
 class Machete {
   enum Error: Swift.Error {
-    case syntaxError(Character)
+    case syntaxError(String)
   }
 
   var text = ""
   private let maxTokenCodes = 1000
+  private let lexer = Lexer()
   private lazy var vars = [Int](repeating: 0, count: maxTokenCodes) // 変数
   private lazy var tokens = [Token?](repeating: nil, count: maxTokenCodes)
   private var lastAllocatedCode = -1
@@ -135,37 +136,38 @@ class Machete {
     let args = CommandLine.arguments
     loadText(args)
 
-    for c in [UInt8]("0123456789".utf8) {
-      vars[Int(c)] = Int(c) - 48
-    }
+    var tc = try lexer.lex(text, getTokenCode)
 
-    text += "\u{0000}"
+    let plus      = getTokenCode("+")
+    let minus     = getTokenCode("-")
+    let assign    = getTokenCode("=")
+    let semicolon = getTokenCode(";")
+    let _print    = getTokenCode("print")
+
+    let endIndex = tc.endIndex
+    tc += [Int](repeating: -1, count: 5) // エラー表示用
     var pc = 0
-    while text[pc] != "\u{0000}" {
-      if text[pc] == "\n" || text[pc] == "\r" || text[pc] == " " || text[pc] == "\t" || text[pc] == ";" {
-        pc += 1
-        continue
+    while pc < endIndex {
+      if tc[pc + 1] == assign && tc[pc + 3] == semicolon { // 単純代入
+        vars[tc[pc]] = vars[tc[pc + 2]]
       }
-
-      if text[pc + 1] == "=" && text[pc + 3] == ";" { // 単純代入
-        vars[text[pc].ascii] = vars[text[pc + 2].ascii]
+      else if tc[pc + 1] == assign && tc[pc + 3] == plus && tc[pc + 5] == semicolon { // 加算
+        vars[tc[pc]] = vars[tc[pc + 2]] + vars[tc[pc + 4]]
       }
-      else if text[pc + 1] == "=" && text[pc + 3] == "+" && text[pc + 5] == ";" { // 加算
-        vars[text[pc].ascii] = vars[text[pc + 2].ascii] + vars[text[pc + 4].ascii]
+      else if tc[pc + 1] == assign && tc[pc + 3] == minus && tc[pc + 5] == semicolon { // 減算
+        vars[tc[pc]] = vars[tc[pc + 2]] - vars[tc[pc + 4]]
       }
-      else if text[pc + 1] == "=" && text[pc + 3] == "-" && text[pc + 5] == ";" { // 減算
-        vars[text[pc].ascii] = vars[text[pc + 2].ascii] - vars[text[pc + 4].ascii]
-      }
-      else if text[pc] == "p" && text[pc + 1] == "r" && text[pc + 5] == " " && text[pc + 7] == ";" { // 最初の2文字しか調べていない（手抜き）
-        print("\(vars[text[pc + 6].ascii])")
+      else if tc[pc] == _print && tc[pc + 2] == semicolon { // print
+        print("\(vars[tc[pc + 1]])")
       }
       else {
-        throw Machete.Error.syntaxError(text[pc])
+        throw Machete.Error.syntaxError(tokens[tc[pc]]!.str)
       }
 
-      while text[pc] != ";" {
+      while tc[pc] != semicolon {
         pc += 1
       }
+      pc += 1
     }
   }
 }
