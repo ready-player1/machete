@@ -18,6 +18,81 @@ extension Character {
   var ascii: Int { Int(asciiValue!) }
 }
 
+extension Character {
+  var isAlphabet: Bool {
+    "a"..."z" ~= self || "A"..."Z" ~= self || "_" == self
+  }
+
+  var isNumber: Bool {
+    "0"..."9" ~= self
+  }
+}
+
+class Lexer {
+  enum Error: Swift.Error {
+    case invalidCharacter(Character)
+  }
+
+  private var input = "" {
+    didSet {
+      pos = input.startIndex
+    }
+  }
+  private lazy var pos = input.startIndex
+
+  private func peek() -> Character? {
+    guard pos < input.endIndex else {
+      return nil
+    }
+    return input[pos]
+  }
+
+  private func addvance() {
+    assert(pos < input.endIndex, "Cannot advance past endIndex")
+    pos = input.index(after: pos)
+  }
+
+  func lex(_ input: String, _ getTokenCode: (String, Int?) -> Int) throws -> [Int] {
+    self.input = input
+    var tokenCodes = [Int]()
+
+    while let ch = peek() {
+      if ch == " " || ch == "\t" || ch == "\n" || ch == "\r" {
+        addvance()
+        continue
+      }
+
+      var (start, len) = (pos, 0)
+
+      if "(){}[];,".contains(ch) {
+        addvance()
+        len = 1
+      }
+      else if ch.isAlphabet || ch.isNumber {
+        while let ch = peek(), ch.isAlphabet || ch.isNumber {
+          addvance()
+          len += 1
+        }
+      }
+      else if "=+-*/!%&~|<>?:.#".contains(ch) {
+        while let ch = peek(), "=+-*/!%&~|<>?:.#".contains(ch) {
+          addvance()
+          len += 1
+        }
+      }
+      else {
+        throw Lexer.Error.invalidCharacter(ch)
+      }
+
+      let beforeEnd = input.index(start, offsetBy: len - 1)
+      let tokenCode = 0
+      #warning("TODO: Receive a token code from a closure")
+      tokenCodes.append(tokenCode)
+    }
+    return tokenCodes
+  }
+}
+
 class Machete {
   enum Error: Swift.Error {
     case syntaxError(Character)
@@ -40,6 +115,8 @@ class Machete {
       exit(1)
     }
   }
+
+  #warning("TODO: Implement the getTokenCode method")
 
   func run() throws {
     let args = CommandLine.arguments
@@ -82,6 +159,9 @@ class Machete {
 
 do {
   try Machete().run()
+}
+catch Lexer.Error.invalidCharacter(let ch) {
+  print("Input contained an invalid character: \(ch)")
 }
 catch Machete.Error.syntaxError(let token) {
   print("Syntax error: \(token)")
