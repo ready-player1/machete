@@ -138,15 +138,33 @@ class Machete {
 
     var tc = try lexer.lex(text, getTokenCode)
 
+    let equal     = getTokenCode("==")
+    let notEq     = getTokenCode("!=")
+    let les       = getTokenCode("<")
+    let gtrEq     = getTokenCode(">=")
+    let lesEq     = getTokenCode("<=")
+    let gtr       = getTokenCode(">")
+    let colon     = getTokenCode(":")
+    let lparen    = getTokenCode("(")
+    let rparen    = getTokenCode(")")
     let plus      = getTokenCode("+")
     let minus     = getTokenCode("-")
     let assign    = getTokenCode("=")
     let semicolon = getTokenCode(";")
     let _print    = getTokenCode("print")
+    let _if       = getTokenCode("if")
+    let goto      = getTokenCode("goto")
 
     let endIndex = tc.endIndex
-    tc += [Int](repeating: -1, count: 5) // エラー表示用
+    tc += [Int](repeating: -1, count: 8) // エラー表示用
     var pc = 0
+    while pc < endIndex - 1 { // ラベル定義命令を探して位置を登録
+      if tc[pc + 1] == colon {
+        vars[tc[pc]] = pc + 2; // ラベル定義命令の次のpc値を変数に記録しておく
+      }
+      pc += 1
+    }
+    pc = 0
     while pc < endIndex {
       if tc[pc + 1] == assign && tc[pc + 3] == semicolon { // 単純代入
         vars[tc[pc]] = vars[tc[pc + 2]]
@@ -159,6 +177,26 @@ class Machete {
       }
       else if tc[pc] == _print && tc[pc + 2] == semicolon { // print
         print("\(vars[tc[pc + 1]])")
+      }
+      else if tc[pc + 1] == colon { // ラベル定義命令
+        pc += 2 // 読み飛ばす
+        continue
+      }
+      else if tc[pc] == goto && tc[pc + 2] == semicolon { // goto
+        pc = vars[tc[pc + 1]];
+        continue
+      }
+      else if (tc[pc] == _if && tc[pc + 1] == lparen && tc[pc + 5] == rparen &&
+               tc[pc + 6] == goto && tc[pc + 8] == semicolon) { // if...goto
+        let (lhs, op, rhs) = (vars[tc[pc + 2]], tc[pc + 3], vars[tc[pc + 4]])
+        let dest = vars[tc[pc + 7]]
+
+        if op == equal && lhs == rhs { pc = dest; continue }
+        if op == notEq && lhs != rhs { pc = dest; continue }
+        if op == les   && lhs <  rhs { pc = dest; continue }
+        if op == gtrEq && lhs >= rhs { pc = dest; continue }
+        if op == lesEq && lhs <= rhs { pc = dest; continue }
+        if op == gtr   && lhs >  rhs { pc = dest; continue }
       }
       else {
         throw Machete.Error.syntaxError(tokens[tc[pc]]!.str)
