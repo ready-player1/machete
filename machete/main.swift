@@ -67,10 +67,10 @@ class Lexer {
     pos = input.index(after: pos)
   }
 
-  func lex(_ input: String, _ getTokenCode: (String, Int?) -> Int) throws -> [Int] {
+  func lex(_ input: String, _ allocTokenCode: (Int, String, Int) throws -> ()) throws -> Int {
     self.input = input
-    var tokenCodes = [Int]()
 
+    var nTokens = 0
     while let ch = peek() {
       if ch == " " || ch == "\t" || ch == "\n" || ch == "\r" {
         addvance()
@@ -100,10 +100,10 @@ class Lexer {
       }
 
       let beforeEnd = input.index(start, offsetBy: len - 1)
-      let tokenCode = getTokenCode("\(input[start...beforeEnd])", len)
-      tokenCodes.append(tokenCode)
+      try allocTokenCode(nTokens, "\(input[start...beforeEnd])", len)
+      nTokens += 1
     }
-    return tokenCodes
+    return nTokens
   }
 }
 
@@ -115,18 +115,24 @@ class Machete {
   var text = ""
   private let maxTokenCodes = 1000
   private let lexer = Lexer()
-  private var vars: UnsafeMutablePointer<Int> // 変数
+  private var vars, tc: UnsafeMutablePointer<Int>
   private lazy var tokens = [Token?](repeating: nil, count: maxTokenCodes)
   private var lastAllocatedCode = -1
 
   init() {
     vars = UnsafeMutablePointer<Int>.allocate(capacity: maxTokenCodes)
     vars.initialize(repeating: 0, count: maxTokenCodes)
+
+    tc = UnsafeMutablePointer<Int>.allocate(capacity: maxTokenCodes)
+    tc.initialize(repeating: -1, count: maxTokenCodes)
   }
 
   deinit {
     vars.deinitialize(count: maxTokenCodes)
     vars.deallocate()
+
+    tc.deinitialize(count: maxTokenCodes)
+    tc.deallocate()
   }
 
   func loadText(_ args: [String]) {
@@ -164,7 +170,10 @@ class Machete {
     let args = CommandLine.arguments
     loadText(args)
 
-    var tc = try lexer.lex(text, getTokenCode)
+    let tc = tc
+    let nTokens = try lexer.lex(text) { i, str, len in
+      tc[i] = getTokenCode(str, len: len)
+    }
 
     let equal     = getTokenCode("==")
     let notEq     = getTokenCode("!=")
@@ -184,17 +193,15 @@ class Machete {
     let goto      = getTokenCode("goto")
     let time      = getTokenCode("time")
 
-    let endIndex = tc.endIndex
-    tc += [Int](repeating: -1, count: 8) // エラー表示用
     var pc = 0
-    while pc < endIndex - 1 { // ラベル定義命令を探して位置を登録
+    while pc < nTokens - 1 { // ラベル定義命令を探して位置を登録
       if tc[pc + 1] == colon {
         vars[tc[pc]] = pc + 2; // ラベル定義命令の次のpc値を変数に記録しておく
       }
       pc += 1
     }
     pc = 0
-    while pc < endIndex {
+    while pc < nTokens {
       if tc[pc + 1] == assign && tc[pc + 3] == semicolon { // 単純代入
         vars[tc[pc]] = vars[tc[pc + 2]]
       }
