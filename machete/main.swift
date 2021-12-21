@@ -87,8 +87,7 @@ class Lexer {
       }
 
       let beforeEnd = input.index(start, offsetBy: len - 1)
-      let tokenCode = 0
-      #warning("TODO: Receive a token code from a closure")
+      let tokenCode = getTokenCode("\(input[start...beforeEnd])", len)
       tokenCodes.append(tokenCode)
     }
     return tokenCodes
@@ -104,6 +103,7 @@ class Machete {
   private let maxTokenCodes = 1000
   private lazy var vars = [Int](repeating: 0, count: maxTokenCodes) // 変数
   private lazy var tokens = [Token?](repeating: nil, count: maxTokenCodes)
+  private var lastAllocatedCode = -1
 
   func loadText(_ args: [String]) {
     if args.count < 2 {
@@ -120,7 +120,16 @@ class Machete {
     }
   }
 
-  #warning("TODO: Implement the getTokenCode method")
+  func getTokenCode(_ str: String, len: Int? = nil) -> Int {
+    if let foundCode = tokens.indices.filter({ tokens[$0]?.str == str }).first {
+      return foundCode
+    }
+    precondition(lastAllocatedCode < maxTokenCodes, "Too many tokens")
+    lastAllocatedCode += 1
+    vars[lastAllocatedCode] = Int(str) ?? 0
+    tokens[lastAllocatedCode] = Token(str: str, len: len ?? str.count)
+    return lastAllocatedCode
+  }
 
   func run() throws {
     let args = CommandLine.arguments
