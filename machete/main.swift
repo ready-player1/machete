@@ -154,6 +154,7 @@ class Machete {
     let _print    = getTokenCode("print")
     let _if       = getTokenCode("if")
     let goto      = getTokenCode("goto")
+    let time      = getTokenCode("time")
 
     let endIndex = tc.endIndex
     tc += [Int](repeating: -1, count: 8) // エラー表示用
@@ -197,6 +198,9 @@ class Machete {
         if op == gtrEq && lhs >= rhs { pc = dest; continue }
         if op == lesEq && lhs <= rhs { pc = dest; continue }
         if op == gtr   && lhs >  rhs { pc = dest; continue }
+      }
+      else if tc[pc] == time && tc[pc + 1] == semicolon {
+        print(String(format: "time: %.3f[sec]", Double(clock()) / Double(CLOCKS_PER_SEC)))
       }
       else {
         throw Machete.Error.syntaxError(tokens[tc[pc]]!.str)
