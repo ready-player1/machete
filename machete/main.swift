@@ -115,9 +115,19 @@ class Machete {
   var text = ""
   private let maxTokenCodes = 1000
   private let lexer = Lexer()
-  private lazy var vars = [Int](repeating: 0, count: maxTokenCodes) // 変数
+  private var vars: UnsafeMutablePointer<Int> // 変数
   private lazy var tokens = [Token?](repeating: nil, count: maxTokenCodes)
   private var lastAllocatedCode = -1
+
+  init() {
+    vars = UnsafeMutablePointer<Int>.allocate(capacity: maxTokenCodes)
+    vars.initialize(repeating: 0, count: maxTokenCodes)
+  }
+
+  deinit {
+    vars.deinitialize(count: maxTokenCodes)
+    vars.deallocate()
+  }
 
   func loadText(_ args: [String]) {
     if args.count < 2 {
