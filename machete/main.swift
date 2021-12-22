@@ -135,17 +135,14 @@ class Machete {
     tc.deallocate()
   }
 
-  func loadText(_ args: [String]) {
-    if args.count < 2 {
-      print("Usage: \((args[0] as NSString).lastPathComponent) program-file")
-      exit(1)
-    }
-
+  func loadText(path: String) {
+    let start = path.first == "\"" ? path.index(after: path.startIndex) : path.startIndex
+    let end = path[start..<path.endIndex].firstIndex(of: "\"") ?? path.endIndex
     do {
-      text = try String(contentsOf: URL(fileURLWithPath: args[1]))
+      text = try String(contentsOf: URL(fileURLWithPath: "\(path[start..<end])"))
     }
     catch {
-      print("Failed to open \(args[1])")
+      print("Failed to open \(path[start..<end])")
       exit(1)
     }
   }
@@ -167,9 +164,6 @@ class Machete {
   }
 
   func run() throws {
-    let args = CommandLine.arguments
-    loadText(args)
-
     let tc = tc
     let nTokens = try lexer.lex(text) { i, str, len in
       tc[i] = getTokenCode(str, len: len)
@@ -249,8 +243,16 @@ class Machete {
   }
 }
 
+let machete = Machete()
+let args = CommandLine.arguments
 do {
-  try Machete().run()
+  if args.count >= 2 {
+    machete.loadText(path: args[1])
+    try machete.run()
+  }
+  else {
+    #warning("TODO: Run the REPL")
+  }
 }
 catch Lexer.Error.invalidCharacter(let ch) {
   print("Input contained an invalid character: \(ch)")
