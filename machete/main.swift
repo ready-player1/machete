@@ -256,6 +256,19 @@ public class Machete {
       print("An error occurred: \(error)")
     }
   }
+
+  public func runRepl(prompt: String, handleCommand: (String) -> Bool) {
+    var nLines = 1
+    while true {
+      print(String(format: prompt, nLines), terminator: "")
+      fflush(stdout)
+      if let line = readLine(), !handleCommand(line) {
+        break
+      }
+      run()
+      nLines += 1
+    }
+  }
 }
 
 let machete = Machete()
@@ -265,5 +278,18 @@ if args.count >= 2 {
   machete.run()
 }
 else {
-  #warning("TODO: Run the REPL")
+  machete.runRepl(prompt: "(%d)> ") { input in
+    if input == "exit" {
+      return false
+    }
+
+    if input.hasPrefix("run ") {
+      let start = input.index(input.startIndex, offsetBy: 4)
+      machete.loadText(path: "\(input[start..<input.endIndex])")
+    }
+    else {
+      machete.text = input
+    }
+    return true
+  }
 }
