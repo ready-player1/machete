@@ -167,7 +167,7 @@ public class Machete {
     let begin = clock()
 
     let tc = tc
-    let nTokens = try lexer.lex(text) { i, str, len in
+    var nTokens = try lexer.lex(text) { i, str, len in
       tc[i] = getTokenCode(str, len: len)
     }
 
@@ -189,6 +189,8 @@ public class Machete {
     let goto      = getTokenCode("goto")
     let time      = getTokenCode("time")
 
+    tc[nTokens] = semicolon // 末尾に「;」を付け忘れることが多いので、付けてあげる
+    nTokens += 1
     var pc = 0
     while pc < nTokens - 1 { // ラベル定義命令を探して位置を登録
       if tc[pc + 1] == colon {
@@ -232,6 +234,9 @@ public class Machete {
       }
       else if tc[pc] == time && tc[pc + 1] == semicolon {
         print(String(format: "time: %.3f[sec]", Double(clock() - begin) / Double(CLOCKS_PER_SEC)))
+      }
+      else if tc[pc] == semicolon {
+        // 何もしない
       }
       else {
         throw Machete.Error.syntaxError("\(tokens[tc[pc]]!)")
