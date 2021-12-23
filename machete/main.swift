@@ -164,6 +164,8 @@ public class Machete {
   }
 
   func exec() throws {
+    let begin = clock()
+
     let tc = tc
     let nTokens = try lexer.lex(text) { i, str, len in
       tc[i] = getTokenCode(str, len: len)
@@ -229,7 +231,7 @@ public class Machete {
         if op == gtr   && lhs >  rhs { pc = dest; continue }
       }
       else if tc[pc] == time && tc[pc + 1] == semicolon {
-        print(String(format: "time: %.3f[sec]", Double(clock()) / Double(CLOCKS_PER_SEC)))
+        print(String(format: "time: %.3f[sec]", Double(clock() - begin) / Double(CLOCKS_PER_SEC)))
       }
       else {
         throw Machete.Error.syntaxError("\(tokens[tc[pc]]!)")
