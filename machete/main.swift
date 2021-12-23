@@ -39,6 +39,10 @@ extension Token: Equatable {
   }
 }
 
+extension Token: CustomStringConvertible {
+  var description: String { str }
+}
+
 class Lexer {
   enum Error: Swift.Error {
     case invalidCharacter(Character)
@@ -217,7 +221,7 @@ class Machete {
         print(String(format: "time: %.3f[sec]", Double(clock()) / Double(CLOCKS_PER_SEC)))
       }
       else {
-        throw Machete.Error.syntaxError(tokens[tc[pc]]!.str)
+        throw Machete.Error.syntaxError("\(tokens[tc[pc]]!)")
       }
 
       while tc[pc] != semicolon {
