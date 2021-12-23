@@ -28,7 +28,16 @@ extension Character {
   }
 }
 
-typealias Token = (str: String, len: Int)
+struct Token {
+  let str: String
+  let len: Int
+}
+
+extension Token: Equatable {
+  static func ==(lhs: Token, rhs: Token) -> Bool {
+    lhs.len == rhs.len && lhs.str == rhs.str
+  }
+}
 
 class Lexer {
   enum Error: Swift.Error {
@@ -121,15 +130,20 @@ class Machete {
     }
   }
 
-  func getTokenCode(_ str: String, len: Int? = nil) -> Int {
-    if let foundCode = tokens.indices.filter({ tokens[$0]?.str == str }).first {
+  func getTokenCode(_ token: Token) -> Int {
+    if let foundCode = tokens.indices.filter({ tokens[$0] == token }).first {
       return foundCode
     }
     precondition(lastAllocatedCode < maxTokenCodes, "Too many tokens")
     lastAllocatedCode += 1
-    vars[lastAllocatedCode] = Int(str) ?? 0
-    tokens[lastAllocatedCode] = Token(str: str, len: len ?? str.count)
+    vars[lastAllocatedCode] = Int(token.str) ?? 0
+    tokens[lastAllocatedCode] = token
     return lastAllocatedCode
+  }
+
+  func getTokenCode(_ str: String, len: Int? = nil) -> Int {
+    let token = Token(str: str, len: len ?? str.count)
+    return getTokenCode(token)
   }
 
   func run() throws {
