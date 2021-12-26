@@ -31,6 +31,15 @@ extension Character {
 struct Token {
   let str: String
   let len: Int
+
+  init(str: String, len: Int) {
+    self.str = str
+    self.len = len
+  }
+
+  init(_ str: String) {
+    self.init(str: str, len: str.count)
+  }
 }
 
 extension Token: Equatable {
@@ -107,6 +116,82 @@ class Lexer {
   }
 }
 
+enum Key: Int, CaseIterable {
+  case WildCard
+
+  case Equal
+  case NotEq
+  case Les
+  case GtrEq
+  case LesEq
+  case Gtr
+  case Plus
+  case Minus
+  case Period
+  case Semicolon
+
+  case Assign
+
+  case Lparen
+  case Rparen
+  case Colon
+
+  case Zero
+  case One
+  case Two
+  case Three
+  case Four
+  case Five
+  case Six
+  case Seven
+  case Eight
+  case Nine
+
+  case Print
+  case If
+  case Goto
+  case Time
+
+  func getToken() -> Token {
+    switch self {
+    case .WildCard: return Token("!!*")
+
+    case .Equal: return Token("==")
+    case .NotEq: return Token("!=")
+    case .Les: return Token("<")
+    case .GtrEq: return Token(">=")
+    case .LesEq: return Token("<=")
+    case .Gtr: return Token(">")
+    case .Plus: return Token("+")
+    case .Minus: return Token("-")
+    case .Period: return Token(".")
+    case .Semicolon: return Token(";")
+
+    case .Assign: return Token("=")
+
+    case .Lparen: return Token("(")
+    case .Rparen: return Token(")")
+    case .Colon: return Token(":")
+
+    case .Zero: return Token("0")
+    case .One: return Token("1")
+    case .Two: return Token("2")
+    case .Three: return Token("3")
+    case .Four: return Token("4")
+    case .Five: return Token("5")
+    case .Six: return Token("6")
+    case .Seven: return Token("7")
+    case .Eight: return Token("8")
+    case .Nine: return Token("9")
+
+    case .Print: return Token("print")
+    case .If: return Token("if")
+    case .Goto: return Token("goto")
+    case .Time: return Token("time")
+    }
+  }
+}
+
 public class Machete {
   enum Error: Swift.Error {
     case syntaxError(String)
@@ -125,6 +210,10 @@ public class Machete {
 
     tc = UnsafeMutablePointer<Int>.allocate(capacity: maxTokenCodes)
     tc.initialize(repeating: -1, count: maxTokenCodes)
+
+    for token in Key.allCases.map({ $0.getToken() }) {
+      let _ = getTokenCode(token)
+    }
   }
 
   deinit {
