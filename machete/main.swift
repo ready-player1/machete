@@ -107,19 +107,19 @@ class Lexer {
   }
 }
 
-class Machete {
+public class Machete {
   enum Error: Swift.Error {
     case syntaxError(String)
   }
 
-  var text = ""
-  private let maxTokenCodes = 1000
-  private let lexer = Lexer()
-  private var vars, tc: UnsafeMutablePointer<Int>
-  private lazy var tokens = [Token?](repeating: nil, count: maxTokenCodes)
+  public var text = ""
+  let maxTokenCodes = 1000
+  let lexer = Lexer()
+  var vars, tc: UnsafeMutablePointer<Int>
+  lazy var tokens = [Token?](repeating: nil, count: maxTokenCodes)
   private var lastAllocatedCode = -1
 
-  init() {
+  public init() {
     vars = UnsafeMutablePointer<Int>.allocate(capacity: maxTokenCodes)
     vars.initialize(repeating: 0, count: maxTokenCodes)
 
@@ -135,7 +135,7 @@ class Machete {
     tc.deallocate()
   }
 
-  func loadText(path: String) {
+  public func loadText(path: String) {
     let start = path.first == "\"" ? path.index(after: path.startIndex) : path.startIndex
     let end = path[start..<path.endIndex].firstIndex(of: "\"") ?? path.endIndex
     do {
@@ -163,7 +163,7 @@ class Machete {
     return getTokenCode(token)
   }
 
-  func run() throws {
+  public func run() throws {
     let tc = tc
     let nTokens = try lexer.lex(text) { i, str, len in
       tc[i] = getTokenCode(str, len: len)
