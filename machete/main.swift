@@ -163,7 +163,7 @@ public class Machete {
     return getTokenCode(token)
   }
 
-  public func run() throws {
+  func exec() throws {
     let tc = tc
     let nTokens = try lexer.lex(text) { i, str, len in
       tc[i] = getTokenCode(str, len: len)
@@ -241,25 +241,29 @@ public class Machete {
       pc += 1
     }
   }
+
+  public func run() {
+    do {
+      try exec()
+    }
+    catch Lexer.Error.invalidCharacter(let ch) {
+      print("Input contained an invalid character: \(ch)")
+    }
+    catch Machete.Error.syntaxError(let token) {
+      print("Syntax error: \(token)")
+    }
+    catch {
+      print("An error occurred: \(error)")
+    }
+  }
 }
 
 let machete = Machete()
 let args = CommandLine.arguments
-do {
-  if args.count >= 2 {
-    machete.loadText(path: args[1])
-    try machete.run()
-  }
-  else {
-    #warning("TODO: Run the REPL")
-  }
+if args.count >= 2 {
+  machete.loadText(path: args[1])
+  machete.run()
 }
-catch Lexer.Error.invalidCharacter(let ch) {
-  print("Input contained an invalid character: \(ch)")
-}
-catch Machete.Error.syntaxError(let token) {
-  print("Syntax error: \(token)")
-}
-catch {
-  print("An error occurred: \(error)")
+else {
+  #warning("TODO: Run the REPL")
 }
