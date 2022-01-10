@@ -192,6 +192,12 @@ enum Key: Int, CaseIterable {
   }
 }
 
+extension String {
+  func compare(_ phrCmp: (Int, String, Int) -> Bool , id: Int, beginning offset: Int) -> Bool {
+    phrCmp(id, self, offset)
+  }
+}
+
 public class Machete {
   enum Error: Swift.Error {
     case syntaxError(String)
@@ -199,8 +205,11 @@ public class Machete {
 
   public var text = ""
   let maxTokenCodes = 1000
+  let maxPhraseLen = 31
+  let wpcLen = 9
   let lexer = Lexer()
-  var vars, tc: UnsafeMutablePointer<Int>
+  var vars, tc, phraseTc, wpc: UnsafeMutablePointer<Int>
+  var nextPc = 0
   lazy var tokens = [Token?](repeating: nil, count: maxTokenCodes)
   private var lastAllocatedCode = -1
 
@@ -211,8 +220,14 @@ public class Machete {
     tc = UnsafeMutablePointer<Int>.allocate(capacity: maxTokenCodes)
     tc.initialize(repeating: -1, count: maxTokenCodes)
 
+    phraseTc = UnsafeMutablePointer<Int>.allocate(capacity: (maxPhraseLen + 1) * 100)
+    phraseTc.initialize(repeating: -1, count: (maxPhraseLen + 1) * 100)
+
+    wpc = UnsafeMutablePointer<Int>.allocate(capacity: wpcLen)
+    wpc.initialize(repeating: 0, count: wpcLen)
+
     for token in Key.allCases.map({ $0.getToken() }) {
-      let _ = getTokenCode(token)
+      _ = getTokenCode(token)
     }
   }
 
@@ -222,6 +237,12 @@ public class Machete {
 
     tc.deinitialize(count: maxTokenCodes)
     tc.deallocate()
+
+    phraseTc.deinitialize(count: (maxPhraseLen + 1) * 100)
+    phraseTc.deallocate()
+
+    wpc.deinitialize(count: wpcLen)
+    wpc.deallocate()
   }
 
   public func loadText(path: String) {
@@ -252,6 +273,40 @@ public class Machete {
     return getTokenCode(token)
   }
 
+  func phrCmp(id: Int, phrase: String, offset: Int) -> Bool {
+    let (tc, phraseTc, wpc) = (tc, phraseTc, wpc)
+
+    let head = id * (maxPhraseLen + 1)
+    var phraseLen: Int
+    if phraseTc[head + maxPhraseLen] == -1 {
+      phraseLen = try! lexer.lex(phrase) { i, str, len in
+        phraseTc[head + i] = getTokenCode(str, len: len)
+      }
+      assert(phraseLen <= maxPhraseLen, "Phrase too long")
+      phraseTc[head + maxPhraseLen] = phraseLen
+    }
+
+    phraseLen = phraseTc[head + maxPhraseLen]
+    var pc = offset
+    var i = 0
+    while i < phraseLen {
+      if phraseTc[head + i] == Key.WildCard.rawValue {
+        i += 1
+        wpc[ phraseTc[head + i] - Key.Zero.rawValue ] = pc
+        i += 1
+        pc += 1
+        continue
+      }
+      if phraseTc[head + i] != tc[pc] {
+        return false
+      }
+      i += 1
+      pc += 1
+    }
+    nextPc = pc
+    return true
+  }
+
   func exec() throws {
     let begin = clock()
 
@@ -259,82 +314,60 @@ public class Machete {
     var nTokens = try lexer.lex(text) { i, str, len in
       tc[i] = getTokenCode(str, len: len)
     }
-
-    let equal     = getTokenCode("==")
-    let notEq     = getTokenCode("!=")
-    let les       = getTokenCode("<")
-    let gtrEq     = getTokenCode(">=")
-    let lesEq     = getTokenCode("<=")
-    let gtr       = getTokenCode(">")
-    let colon     = getTokenCode(":")
-    let lparen    = getTokenCode("(")
-    let rparen    = getTokenCode(")")
-    let plus      = getTokenCode("+")
-    let minus     = getTokenCode("-")
-    let assign    = getTokenCode("=")
-    let semicolon = getTokenCode(";")
-    let _print    = getTokenCode("print")
-    let _if       = getTokenCode("if")
-    let goto      = getTokenCode("goto")
-    let time      = getTokenCode("time")
-
-    tc[nTokens] = semicolon // 末尾に「;」を付け忘れることが多いので、付けてあげる
+    tc[nTokens] = Key.Semicolon.rawValue // 末尾に「;」を付け忘れることが多いので、付けてあげる
     nTokens += 1
+
+    let f = phrCmp
+
     var pc = 0
     while pc < nTokens - 1 { // ラベル定義命令を探して位置を登録
-      if tc[pc + 1] == colon {
-        vars[tc[pc]] = pc + 2; // ラベル定義命令の次のpc値を変数に記録しておく
+      if "!!*0:".compare(f, id: 0, beginning: pc) {
+        vars[tc[pc]] = nextPc; // ラベル定義命令の次のpc値を変数に記録しておく
       }
       pc += 1
     }
     pc = 0
     while pc < nTokens {
-      if tc[pc + 1] == assign && tc[pc + 3] == semicolon { // 単純代入
-        vars[tc[pc]] = vars[tc[pc + 2]]
+      if "!!*0 = !!*1;".compare(f, id: 1, beginning: pc) { // 単純代入
+        vars[tc[wpc[0]]] = vars[tc[wpc[1]]];
       }
-      else if tc[pc + 1] == assign && tc[pc + 3] == plus && tc[pc + 5] == semicolon { // 加算
-        vars[tc[pc]] = vars[tc[pc + 2]] + vars[tc[pc + 4]]
+      else if "!!*0 = !!*1 + !!*2;".compare(f, id: 2, beginning: pc) { // 加算
+        vars[tc[wpc[0]]] = vars[tc[wpc[1]]] + vars[tc[wpc[2]]]
       }
-      else if tc[pc + 1] == assign && tc[pc + 3] == minus && tc[pc + 5] == semicolon { // 減算
-        vars[tc[pc]] = vars[tc[pc + 2]] - vars[tc[pc + 4]]
+      else if "!!*0 = !!*1 - !!*2;".compare(f, id: 3, beginning: pc) { // 減算
+        vars[tc[wpc[0]]] = vars[tc[wpc[1]]] - vars[tc[wpc[2]]]
       }
-      else if tc[pc] == _print && tc[pc + 2] == semicolon { // print
-        print("\(vars[tc[pc + 1]])")
+      else if "print !!*0;".compare(f, id: 4, beginning: pc) { // print
+        print("\(vars[tc[wpc[0]]])")
       }
-      else if tc[pc + 1] == colon { // ラベル定義命令
-        pc += 2 // 読み飛ばす
+      else if "!!*0:".compare(f, id: 0, beginning: pc) { // ラベル定義命令
+        // 何もしない
+      }
+      else if "goto !!*0;".compare(f, id: 5, beginning: pc) { // goto
+        pc = vars[tc[wpc[0]]];
         continue
       }
-      else if tc[pc] == goto && tc[pc + 2] == semicolon { // goto
-        pc = vars[tc[pc + 1]];
-        continue
-      }
-      else if (tc[pc] == _if && tc[pc + 1] == lparen && tc[pc + 5] == rparen &&
-               tc[pc + 6] == goto && tc[pc + 8] == semicolon) { // if...goto
-        let (lhs, op, rhs) = (vars[tc[pc + 2]], tc[pc + 3], vars[tc[pc + 4]])
-        let dest = vars[tc[pc + 7]]
+      else if "if (!!*0 !!*1 !!*2) goto !!*3;".compare(f, id: 6, beginning: pc) && Key.Equal.rawValue <= tc[wpc[1]] && tc[wpc[1]] <= Key.Gtr.rawValue { // if...goto
+        let (lhs, op, rhs) = (vars[tc[wpc[0]]], tc[wpc[1]], vars[tc[wpc[2]]])
+        let dest = vars[tc[wpc[3]]]
 
-        if op == equal && lhs == rhs { pc = dest; continue }
-        if op == notEq && lhs != rhs { pc = dest; continue }
-        if op == les   && lhs <  rhs { pc = dest; continue }
-        if op == gtrEq && lhs >= rhs { pc = dest; continue }
-        if op == lesEq && lhs <= rhs { pc = dest; continue }
-        if op == gtr   && lhs >  rhs { pc = dest; continue }
+        if op == Key.Equal.rawValue && lhs == rhs { pc = dest; continue }
+        if op == Key.NotEq.rawValue && lhs != rhs { pc = dest; continue }
+        if op == Key.Les.rawValue   && lhs <  rhs { pc = dest; continue }
+        if op == Key.GtrEq.rawValue && lhs >= rhs { pc = dest; continue }
+        if op == Key.LesEq.rawValue && lhs <= rhs { pc = dest; continue }
+        if op == Key.Gtr.rawValue   && lhs >  rhs { pc = dest; continue }
       }
-      else if tc[pc] == time && tc[pc + 1] == semicolon {
+      else if "time;".compare(f, id: 7, beginning: pc) {
         print(String(format: "time: %.3f[sec]", Double(clock() - begin) / Double(CLOCKS_PER_SEC)))
       }
-      else if tc[pc] == semicolon {
+      else if ";".compare(f, id: 8, beginning: pc) {
         // 何もしない
       }
       else {
         throw Machete.Error.syntaxError("\(tokens[tc[pc]]!)")
       }
-
-      while tc[pc] != semicolon {
-        pc += 1
-      }
-      pc += 1
+      pc = nextPc
     }
   }
 
