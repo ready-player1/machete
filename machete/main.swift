@@ -199,7 +199,7 @@ extension String {
 }
 
 enum Opcode: Int {
-  case OpCpy
+  case OpCpy = 1
   case OpAdd
   case OpSub
   case OpGoto
@@ -215,6 +215,7 @@ enum Opcode: Int {
 }
 
 typealias IntPtr = UnsafeMutablePointer<Int>?
+typealias IntPtrPtr = UnsafeMutablePointer<IntPtr>?
 
 class InternalCodePointer {
   var ptr: UnsafeMutablePointer<IntPtr>
@@ -251,11 +252,14 @@ public class Machete {
   let maxPhraseLen = 31
   let wpcLen = 9
   let maxInternalCodes = 10000
+  let maxJumps = 1001
   let lexer = Lexer()
+  let vm = VM()
   var vars, tc, phraseTc, wpc: UnsafeMutablePointer<Int>
   var nextPc = 0
   var internalCodes: UnsafeMutablePointer<IntPtr>
   lazy var icp = InternalCodePointer(internalCodes)
+  var jumps: UnsafeMutablePointer<IntPtrPtr>
   lazy var tokens = [Token?](repeating: nil, count: maxTokenCodes)
   private var lastAllocatedCode = -1
 
@@ -274,6 +278,9 @@ public class Machete {
 
     internalCodes = UnsafeMutablePointer<IntPtr>.allocate(capacity: maxInternalCodes)
     internalCodes.initialize(repeating: nil, count: maxInternalCodes)
+
+    jumps = UnsafeMutablePointer<IntPtrPtr>.allocate(capacity: maxJumps)
+    jumps.initialize(repeating: nil, count: maxJumps)
 
     for token in Key.allCases.map({ $0.getToken() }) {
       _ = getTokenCode(token)
@@ -295,6 +302,9 @@ public class Machete {
 
     internalCodes.deinitialize(count: maxInternalCodes)
     internalCodes.deallocate()
+
+    jumps.deinitialize(count: maxJumps)
+    jumps.deallocate()
   }
 
   public func loadText(path: String) {
@@ -394,7 +404,7 @@ public class Machete {
         putIc(.OpPrint, vars + tc[wpc[0]], nil, nil, nil)
       }
       else if "!!*0:".compare(f, id: 0, beginning: pc) { // ラベル定義命令
-        #warning("Set the relative position of the label")
+        vars[tc[wpc[0]]] = icp.ptr - internalCodes
       }
       else if "goto !!*0;".compare(f, id: 5, beginning: pc) { // goto
         putIc(.OpGoto, vars + tc[wpc[0]], nil, nil, nil)
@@ -416,7 +426,24 @@ public class Machete {
     }
     putIc(.OpEnd, nil, nil, nil, nil)
 
-    #warning("Specify the jump destination")
+    let end = icp.ptr
+    icp.ptr = internalCodes
+    let jumps = jumps
+    var i = 1
+    while icp.ptr < end {
+      let op = Int(bitPattern: icp[0])
+      if Opcode.OpGoto.rawValue <= op && op <= Opcode.OpJgt.rawValue {
+        let offset = Int("\(icp[1]!.pointee)".suffix(2), radix: 16)!
+        jumps[i] = internalCodes + offset
+        icp[1]!.pointee = i
+        i += 1
+      }
+      icp += 5
+    }
+  }
+
+  func exec() {
+    vm.run(internalCodes, jumps)
   }
 
   public func run() {
@@ -425,13 +452,17 @@ public class Machete {
     }
     catch Lexer.Error.invalidCharacter(let ch) {
       print("Input contained an invalid character: \(ch)")
+      return
     }
     catch Machete.Error.syntaxError(let token) {
       print("Syntax error: \(token)")
+      return
     }
     catch {
       print("An error occurred: \(error)")
+      return
     }
+    exec()
   }
 
   public func runRepl(prompt: String, handleCommand: (String) -> Bool) {
@@ -444,6 +475,50 @@ public class Machete {
       }
       run()
       nLines += 1
+    }
+  }
+}
+
+class VM {
+  func run(_ internalCodes: UnsafeMutablePointer<IntPtr>, _ jumps: UnsafeMutablePointer<IntPtrPtr>) {
+    let begin = clock()
+    let icp = InternalCodePointer(internalCodes)
+    while true {
+      switch Opcode(rawValue: Int(bitPattern: icp[0])) {
+      case .OpCpy:
+        icp[1]!.pointee = icp[2]!.pointee
+        icp += 5
+        continue
+      case .OpAdd:
+        icp[1]!.pointee = icp[2]!.pointee + icp[3]!.pointee
+        icp += 5
+        continue
+      case .OpSub:
+        icp[1]!.pointee = icp[2]!.pointee - icp[3]!.pointee
+        icp += 5
+        continue
+      case .OpPrint:
+        print(icp[1]!.pointee)
+        icp += 5
+        continue
+      case .OpGoto:
+        icp.ptr = jumps[icp[1]!.pointee]!
+        continue
+      case .OpJeq:  if icp[2]!.pointee == icp[3]!.pointee { icp.ptr = jumps[icp[1]!.pointee]!; continue }; icp += 5; continue
+      case .OpJne:  if icp[2]!.pointee != icp[3]!.pointee { icp.ptr = jumps[icp[1]!.pointee]!; continue }; icp += 5; continue
+      case .OpJlt:  if icp[2]!.pointee <  icp[3]!.pointee { icp.ptr = jumps[icp[1]!.pointee]!; continue }; icp += 5; continue
+      case .OpJge:  if icp[2]!.pointee >= icp[3]!.pointee { icp.ptr = jumps[icp[1]!.pointee]!; continue }; icp += 5; continue
+      case .OpJle:  if icp[2]!.pointee <= icp[3]!.pointee { icp.ptr = jumps[icp[1]!.pointee]!; continue }; icp += 5; continue
+      case .OpJgt:  if icp[2]!.pointee >  icp[3]!.pointee { icp.ptr = jumps[icp[1]!.pointee]!; continue }; icp += 5; continue
+      case .OpTime:
+        print(String(format: "time: %.3f[sec]", Double(clock() - begin) / Double(CLOCKS_PER_SEC)))
+        icp += 5
+        continue
+      case .OpEnd:
+        return
+      case .none:
+        fatalError("Unrecognized opcode: \(Int(bitPattern: icp[0]))")
+      }
     }
   }
 }
