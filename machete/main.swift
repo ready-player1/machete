@@ -368,9 +368,7 @@ public class Machete {
     icp += 5
   }
 
-  func exec() throws {
-    let begin = clock()
-
+  func compile() throws {
     let tc = tc
     var nTokens = try lexer.lex(text) { i, str, len in
       tc[i] = getTokenCode(str, len: len)
@@ -423,7 +421,7 @@ public class Machete {
 
   public func run() {
     do {
-      try exec()
+      try compile()
     }
     catch Lexer.Error.invalidCharacter(let ch) {
       print("Input contained an invalid character: \(ch)")
