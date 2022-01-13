@@ -198,6 +198,22 @@ extension String {
   }
 }
 
+enum Opcode: Int {
+  case OpCpy
+  case OpAdd
+  case OpSub
+  case OpGoto
+  case OpJeq
+  case OpJne
+  case OpJlt
+  case OpJge
+  case OpJle
+  case OpJgt
+  case OpPrint
+  case OpTime
+  case OpEnd
+}
+
 public class Machete {
   enum Error: Swift.Error {
     case syntaxError(String)
