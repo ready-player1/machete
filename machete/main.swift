@@ -212,6 +212,7 @@ enum Opcode: Int {
   case OpPrint
   case OpTime
   case OpEnd
+  case OpAdd1
 }
 
 typealias IntPtr = UnsafeMutablePointer<Int>?
@@ -394,6 +395,9 @@ public class Machete {
       if "!!*0 = !!*1;".compare(f, id: 1, beginning: pc) { // 単純代入
         putIc(.OpCpy, vars + tc[wpc[0]], vars + tc[wpc[1]], nil, nil)
       }
+      else if "!!*0 = !!*1 + 1;".compare(f, id: 9, beginning: pc) { // +1専用の命令
+        putIc(.OpAdd1, vars + tc[wpc[0]], nil, nil, nil)
+      }
       else if "!!*0 = !!*1 + !!*2;".compare(f, id: 2, beginning: pc) { // 加算
         putIc(.OpAdd, vars + tc[wpc[0]], vars + tc[wpc[1]], vars + tc[wpc[2]], nil)
       }
@@ -516,6 +520,10 @@ class VM {
         continue
       case .OpEnd:
         return
+      case .OpAdd1:
+        icp[1]!.pointee += 1
+        icp += 5
+        continue
       case .none:
         fatalError("Unrecognized opcode: \(Int(bitPattern: icp[0]))")
       }
