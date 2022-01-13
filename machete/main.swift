@@ -360,7 +360,12 @@ public class Machete {
   }
 
   func putIc(_ op: Opcode, _ p1: IntPtr, _ p2: IntPtr, _ p3: IntPtr, _ p4: IntPtr) {
-    #warning("Implement the putIc method body")
+    icp[0] = UnsafeMutablePointer<Int>.init(bitPattern: op.rawValue)!
+    icp[1] = p1
+    icp[2] = p2
+    icp[3] = p3
+    icp[4] = p4
+    icp += 5
   }
 
   func exec() throws {
