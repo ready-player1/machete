@@ -214,6 +214,8 @@ enum Opcode: Int {
   case OpEnd
 }
 
+typealias IntPtr = UnsafeMutablePointer<Int>?
+
 public class Machete {
   enum Error: Swift.Error {
     case syntaxError(String)
@@ -323,6 +325,10 @@ public class Machete {
     return true
   }
 
+  func putIc(_ op: Opcode, _ p1: IntPtr, _ p2: IntPtr, _ p3: IntPtr, _ p4: IntPtr) {
+    #warning("Implement the putIc method body")
+  }
+
   func exec() throws {
     let begin = clock()
 
@@ -336,46 +342,31 @@ public class Machete {
     let f = phrCmp
 
     var pc = 0
-    while pc < nTokens - 1 { // ラベル定義命令を探して位置を登録
-      if "!!*0:".compare(f, id: 0, beginning: pc) {
-        vars[tc[pc]] = nextPc; // ラベル定義命令の次のpc値を変数に記録しておく
-      }
-      pc += 1
-    }
-    pc = 0
     while pc < nTokens {
       if "!!*0 = !!*1;".compare(f, id: 1, beginning: pc) { // 単純代入
-        vars[tc[wpc[0]]] = vars[tc[wpc[1]]];
+        putIc(.OpCpy, vars + tc[wpc[0]], vars + tc[wpc[1]], nil, nil)
       }
       else if "!!*0 = !!*1 + !!*2;".compare(f, id: 2, beginning: pc) { // 加算
-        vars[tc[wpc[0]]] = vars[tc[wpc[1]]] + vars[tc[wpc[2]]]
+        putIc(.OpAdd, vars + tc[wpc[0]], vars + tc[wpc[1]], vars + tc[wpc[2]], nil)
       }
       else if "!!*0 = !!*1 - !!*2;".compare(f, id: 3, beginning: pc) { // 減算
-        vars[tc[wpc[0]]] = vars[tc[wpc[1]]] - vars[tc[wpc[2]]]
+        putIc(.OpSub, vars + tc[wpc[0]], vars + tc[wpc[1]], vars + tc[wpc[2]], nil)
       }
       else if "print !!*0;".compare(f, id: 4, beginning: pc) { // print
-        print("\(vars[tc[wpc[0]]])")
+        putIc(.OpPrint, vars + tc[wpc[0]], nil, nil, nil)
       }
       else if "!!*0:".compare(f, id: 0, beginning: pc) { // ラベル定義命令
-        // 何もしない
+        #warning("Set the relative position of the label")
       }
       else if "goto !!*0;".compare(f, id: 5, beginning: pc) { // goto
-        pc = vars[tc[wpc[0]]];
-        continue
+        putIc(.OpGoto, vars + tc[wpc[0]], nil, nil, nil)
       }
       else if "if (!!*0 !!*1 !!*2) goto !!*3;".compare(f, id: 6, beginning: pc) && Key.Equal.rawValue <= tc[wpc[1]] && tc[wpc[1]] <= Key.Gtr.rawValue { // if...goto
-        let (lhs, op, rhs) = (vars[tc[wpc[0]]], tc[wpc[1]], vars[tc[wpc[2]]])
-        let dest = vars[tc[wpc[3]]]
-
-        if op == Key.Equal.rawValue && lhs == rhs { pc = dest; continue }
-        if op == Key.NotEq.rawValue && lhs != rhs { pc = dest; continue }
-        if op == Key.Les.rawValue   && lhs <  rhs { pc = dest; continue }
-        if op == Key.GtrEq.rawValue && lhs >= rhs { pc = dest; continue }
-        if op == Key.LesEq.rawValue && lhs <= rhs { pc = dest; continue }
-        if op == Key.Gtr.rawValue   && lhs >  rhs { pc = dest; continue }
+        let op = Opcode(rawValue: Opcode.OpJeq.rawValue + tc[wpc[1]] - Key.Equal.rawValue)!
+        putIc(op, vars + tc[wpc[3]], vars + tc[wpc[0]], vars + tc[wpc[2]], nil)
       }
       else if "time;".compare(f, id: 7, beginning: pc) {
-        print(String(format: "time: %.3f[sec]", Double(clock() - begin) / Double(CLOCKS_PER_SEC)))
+        putIc(.OpTime, nil, nil, nil, nil)
       }
       else if ";".compare(f, id: 8, beginning: pc) {
         // 何もしない
@@ -385,6 +376,9 @@ public class Machete {
       }
       pc = nextPc
     }
+    putIc(.OpEnd, nil, nil, nil, nil)
+
+    #warning("Specify the jump destination")
   }
 
   public func run() {
