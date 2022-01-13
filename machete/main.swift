@@ -216,6 +216,31 @@ enum Opcode: Int {
 
 typealias IntPtr = UnsafeMutablePointer<Int>?
 
+class InternalCodePointer {
+  var ptr: UnsafeMutablePointer<IntPtr>
+
+  init(_ ptr: UnsafeMutablePointer<IntPtr>) {
+    self.ptr = ptr
+  }
+
+  subscript(offset: Int) -> IntPtr {
+    get {
+      ptr[offset]
+    }
+    set {
+      ptr[offset] = newValue
+    }
+  }
+
+  static func +=(icp: InternalCodePointer, offset: Int) {
+    icp.ptr += offset
+  }
+
+  static func -=(icp: InternalCodePointer, offset: Int) {
+    icp.ptr -= offset
+  }
+}
+
 public class Machete {
   enum Error: Swift.Error {
     case syntaxError(String)
@@ -225,9 +250,12 @@ public class Machete {
   let maxTokenCodes = 1000
   let maxPhraseLen = 31
   let wpcLen = 9
+  let maxInternalCodes = 10000
   let lexer = Lexer()
   var vars, tc, phraseTc, wpc: UnsafeMutablePointer<Int>
   var nextPc = 0
+  var internalCodes: UnsafeMutablePointer<IntPtr>
+  lazy var icp = InternalCodePointer(internalCodes)
   lazy var tokens = [Token?](repeating: nil, count: maxTokenCodes)
   private var lastAllocatedCode = -1
 
@@ -243,6 +271,9 @@ public class Machete {
 
     wpc = UnsafeMutablePointer<Int>.allocate(capacity: wpcLen)
     wpc.initialize(repeating: 0, count: wpcLen)
+
+    internalCodes = UnsafeMutablePointer<IntPtr>.allocate(capacity: maxInternalCodes)
+    internalCodes.initialize(repeating: nil, count: maxInternalCodes)
 
     for token in Key.allCases.map({ $0.getToken() }) {
       _ = getTokenCode(token)
@@ -261,6 +292,9 @@ public class Machete {
 
     wpc.deinitialize(count: wpcLen)
     wpc.deallocate()
+
+    internalCodes.deinitialize(count: maxInternalCodes)
+    internalCodes.deallocate()
   }
 
   public func loadText(path: String) {
@@ -340,6 +374,7 @@ public class Machete {
     nTokens += 1
 
     let f = phrCmp
+    icp = InternalCodePointer(internalCodes)
 
     var pc = 0
     while pc < nTokens {
