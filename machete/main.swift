@@ -209,6 +209,7 @@ enum Opcode: Int {
   case OpJge
   case OpJle
   case OpJgt
+  case OpLop
   case OpPrint
   case OpTime
   case OpEnd
@@ -395,6 +396,9 @@ public class Machete {
       if "!!*0 = !!*1;".compare(f, id: 1, beginning: pc) { // 単純代入
         putIc(.OpCpy, vars + tc[wpc[0]], vars + tc[wpc[1]], nil, nil)
       }
+      else if "!!*0 = !!*1 + 1; if (!!*2 < !!*3) goto !!*4;".compare(f, id: 10, beginning: pc) && tc[wpc[0]] == tc[wpc[1]] && tc[wpc[0]] == tc[wpc[2]] {
+        putIc(.OpLop, vars + tc[wpc[4]], vars + tc[wpc[0]], vars + tc[wpc[3]], nil)
+      }
       else if "!!*0 = !!*1 + 1;".compare(f, id: 9, beginning: pc) { // +1専用の命令
         putIc(.OpAdd1, vars + tc[wpc[0]], nil, nil, nil)
       }
@@ -436,7 +440,7 @@ public class Machete {
     var i = 1
     while icp.ptr < end {
       let op = Int(bitPattern: icp[0])
-      if Opcode.OpGoto.rawValue <= op && op <= Opcode.OpJgt.rawValue {
+      if Opcode.OpGoto.rawValue <= op && op <= Opcode.OpLop.rawValue {
         let offset = Int("\(icp[1]!.pointee)".suffix(2), radix: 16)!
         jumps[i] = internalCodes + offset
         icp[1]!.pointee = i
@@ -522,6 +526,16 @@ class VM {
         return
       case .OpAdd1:
         icp[1]!.pointee += 1
+        icp += 5
+        continue
+      case .OpLop:
+        var i = icp[2]!.pointee
+        i += 1
+        icp[2]!.pointee = i
+        if i < icp[3]!.pointee {
+          icp.ptr = jumps[icp[1]!.pointee]!
+          continue
+        }
         icp += 5
         continue
       case .none:
