@@ -222,8 +222,7 @@ class Machete {
         pc = vars[tc[pc + 1]];
         continue
       }
-      else if (tc[pc] == _if && tc[pc + 1] == lparen && tc[pc + 5] == rparen &&
-               tc[pc + 6] == goto && tc[pc + 8] == semicolon) { // if...goto
+      else if tc[pc] == _if && tc[pc + 1] == lparen && tc[pc + 5] == rparen && tc[pc + 6] == goto && tc[pc + 8] == semicolon { // if...goto
         let (lhs, op, rhs) = (vars[tc[pc + 2]], tc[pc + 3], vars[tc[pc + 4]])
         let dest = vars[tc[pc + 7]]
 
