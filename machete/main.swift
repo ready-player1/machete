@@ -62,7 +62,7 @@ class Lexer {
     return input[pos]
   }
 
-  private func addvance() {
+  private func advance() {
     assert(pos < input.endIndex, "Cannot advance past endIndex")
     pos = input.index(after: pos)
   }
@@ -73,25 +73,25 @@ class Lexer {
     var nTokens = 0
     while let ch = peek() {
       if ch == " " || ch == "\t" || ch == "\n" || ch == "\r" {
-        addvance()
+        advance()
         continue
       }
 
       var (start, len) = (pos, 0)
 
       if "(){}[];,".contains(ch) {
-        addvance()
+        advance()
         len = 1
       }
       else if ch.isAlphabet || ch.isNumber {
         while let ch = peek(), ch.isAlphabet || ch.isNumber {
-          addvance()
+          advance()
           len += 1
         }
       }
       else if "=+-*/!%&~|<>?:.#".contains(ch) {
         while let ch = peek(), "=+-*/!%&~|<>?:.#".contains(ch) {
-          addvance()
+          advance()
           len += 1
         }
       }
