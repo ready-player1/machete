@@ -119,6 +119,17 @@ class Lexer {
 enum Key: Int, CaseIterable {
   case WildCard
 
+  case Zero
+  case One
+  case Two
+  case Three
+  case Four
+  case Five
+  case Six
+  case Seven
+  case Eight
+  case Nine
+
   case Equal
   case NotEq
   case Les
@@ -136,17 +147,6 @@ enum Key: Int, CaseIterable {
   case Rparen
   case Colon
 
-  case Zero
-  case One
-  case Two
-  case Three
-  case Four
-  case Five
-  case Six
-  case Seven
-  case Eight
-  case Nine
-
   case Print
   case If
   case Goto
@@ -155,6 +155,17 @@ enum Key: Int, CaseIterable {
   func getToken() -> Token {
     switch self {
     case .WildCard: return Token("!!*")
+
+    case .Zero: return Token("0")
+    case .One: return Token("1")
+    case .Two: return Token("2")
+    case .Three: return Token("3")
+    case .Four: return Token("4")
+    case .Five: return Token("5")
+    case .Six: return Token("6")
+    case .Seven: return Token("7")
+    case .Eight: return Token("8")
+    case .Nine: return Token("9")
 
     case .Equal: return Token("==")
     case .NotEq: return Token("!=")
@@ -172,17 +183,6 @@ enum Key: Int, CaseIterable {
     case .Lparen: return Token("(")
     case .Rparen: return Token(")")
     case .Colon: return Token(":")
-
-    case .Zero: return Token("0")
-    case .One: return Token("1")
-    case .Two: return Token("2")
-    case .Three: return Token("3")
-    case .Four: return Token("4")
-    case .Five: return Token("5")
-    case .Six: return Token("6")
-    case .Seven: return Token("7")
-    case .Eight: return Token("8")
-    case .Nine: return Token("9")
 
     case .Print: return Token("print")
     case .If: return Token("if")
